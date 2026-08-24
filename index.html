@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prompter">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%230b0b0d'/%3E%3Crect x='34' y='48' width='112' height='12' rx='6' fill='%23c8342a'/%3E%3Crect x='34' y='78' width='112' height='12' rx='6' fill='%23e8e6e1'/%3E%3Crect x='34' y='108' width='72' height='12' rx='6' fill='%23e8e6e1' opacity='.55'/%3E%3C/svg%3E">
+<title>Red Beard Teleprompter</title>
+<style>
+:root{
+  --bg:#0b0b0d; --panel:#141418; --panel2:#1c1c22; --line:#2c2c34;
+  --ink:#e8e6e1; --dim:#8d8d98; --accent:#c8342a; --accent-soft:#c8342a33;
+  --radius:12px;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  overscroll-behavior:none;}
+body{overflow:hidden;}
+button,input,select,textarea{font:inherit;color:inherit;}
+button{cursor:pointer;border:none;background:none;}
+
+/* ---------- SETUP SCREEN ---------- */
+#setup{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(var(--safe-t) + 14px) calc(var(--safe-r) + 14px) calc(var(--safe-b) + 28px) calc(var(--safe-l) + 14px);}
+.wrap{max-width:900px;margin:0 auto;}
+
+header.brand{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.mark{width:26px;height:26px;border-radius:7px;background:var(--accent);flex:none;
+  display:flex;align-items:center;justify-content:center;}
+.mark::before{content:"";width:12px;height:2px;background:#fff;box-shadow:0 5px 0 #fff,0 -5px 0 rgba(255,255,255,.5);}
+header.brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700;}
+header.brand h1 span{color:var(--dim);font-weight:500;}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin-bottom:14px;}
+.card h2{margin:0 0 10px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:600;}
+
+/* script picker */
+.scriptbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+select#scriptSel{flex:1;min-width:160px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;padding:10px;appearance:none;}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;font-size:13px;color:var(--dim);white-space:nowrap;}
+.iconbtn:active{background:var(--line);}
+.iconbtn.danger:active{background:#4a1a17;color:#ffb4ad;}
+
+input#title{width:100%;background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;padding:11px;margin-bottom:8px;}
+textarea#body{width:100%;height:34vh;min-height:180px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:9px;padding:12px;resize:vertical;
+  line-height:1.55;font-size:15px;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);}
+
+.stats{display:flex;gap:16px;margin-top:9px;font-size:12px;color:var(--dim);flex-wrap:wrap;}
+.stats b{color:var(--ink);font-weight:600;}
+
+/* control rows */
+.row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
+.row:last-child{border-bottom:none;}
+.row label{flex:0 0 108px;font-size:13px;color:var(--dim);}
+.row input[type=range]{flex:1;min-width:80px;accent-color:var(--accent);background:transparent;height:26px;}
+.row .val{flex:0 0 60px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;font-size:13px;color:var(--dim);}
+.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);}
+.chip:active{transform:scale(.97);}
+
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+.seg button{flex:1;padding:9px 4px;font-size:13px;color:var(--dim);}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff;}
+
+#start{width:100%;background:var(--accent);color:#fff;font-size:17px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase;padding:18px;border-radius:var(--radius);
+  margin-bottom:10px;}
+#start:active{filter:brightness(.85);}
+
+details.help{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:0 14px;margin-bottom:14px;}
+details.help summary{padding:13px 0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);cursor:pointer;font-weight:600;}
+details.help div{padding-bottom:12px;font-size:13px;line-height:1.65;color:var(--dim);}
+details.help kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+  padding:1px 6px;font-size:12px;color:var(--ink);font-family:inherit;}
+details.help b{color:var(--ink);}
+
+/* ---------- PROMPTER ---------- */
+#prompter{position:fixed;inset:0;background:#000;display:none;z-index:50;touch-action:none;}
+#prompter.on{display:block;}
+#rotor{position:absolute;left:50%;top:50%;overflow:hidden;}
+#scroller{position:absolute;left:0;top:0;width:100%;will-change:transform;}
+#text{padding:0;margin:0;}
+#text p{margin:0 0 .55em;}
+#text p:last-child{margin-bottom:0;}
+#text .note{color:#6f6f7a;font-style:italic;font-size:.72em;}
+#text .cue{color:var(--accent);font-size:.72em;letter-spacing:.1em;text-transform:uppercase;}
+#text.nonotes .note{display:none;}
+/* an un-filled [PLACEHOLDER] should be impossible to read past by accident */
+#text .ph{color:var(--accent);background:var(--accent-soft);border-radius:.12em;padding:0 .12em;}
+
+#band{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;display:none;}
+#band.on{display:block;}
+#band .fade{position:absolute;left:0;right:0;background:linear-gradient(#000,#0000);}
+#guide{position:absolute;left:0;right:0;height:0;pointer-events:none;display:none;}
+#guide.on{display:block;}
+#guide::before,#guide::after{content:"";position:absolute;top:-7px;border-style:solid;
+  border-color:transparent;border-width:7px 0 7px 11px;border-left-color:var(--accent);}
+#guide::before{left:6px;}
+#guide::after{right:6px;transform:scaleX(-1);}
+#guide .line{position:absolute;left:24px;right:24px;top:-1px;height:2px;background:var(--accent);opacity:.32;}
+
+/* progress + overlay controls live in SCREEN space (never mirrored/rotated) */
+#prog{position:absolute;left:0;top:0;height:3px;background:var(--accent);width:0;z-index:3;}
+#count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-size:22vmin;font-weight:800;color:var(--accent);z-index:5;pointer-events:none;}
+#count.on{display:flex;}
+
+#bar{position:absolute;left:0;right:0;bottom:0;z-index:4;
+  padding:10px calc(var(--safe-r) + 12px) calc(var(--safe-b) + 10px) calc(var(--safe-l) + 12px);
+  background:linear-gradient(#0000,#000d 38%);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  transition:opacity .25s, transform .25s;}
+#bar.hide{opacity:0;transform:translateY(14px);pointer-events:none;}
+#bar .grp{display:flex;align-items:center;gap:6px;background:#000000b3;border:1px solid #ffffff1f;
+  border-radius:10px;padding:5px 8px;backdrop-filter:blur(8px);}
+#bar .grp span{font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;}
+#bar .grp b{font-size:13px;font-variant-numeric:tabular-nums;min-width:34px;text-align:center;}
+#bar .stp{width:30px;height:30px;border-radius:8px;background:#ffffff14;font-size:16px;line-height:1;
+  display:flex;align-items:center;justify-content:center;}
+#bar .stp:active{background:var(--accent);}
+#play{background:var(--accent);color:#fff;border-radius:10px;padding:10px 20px;font-weight:700;
+  font-size:14px;letter-spacing:.1em;text-transform:uppercase;min-width:96px;}
+#exit{margin-left:auto;background:#ffffff14;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--dim);}
+#exit:active{background:var(--accent);color:#fff;}
+
+/* ---------- SCRIPT PICKER ---------- */
+#picker{position:fixed;inset:0;background:#000000e6;z-index:80;display:none;
+  backdrop-filter:blur(6px);
+  padding:calc(var(--safe-t) + 12px) calc(var(--safe-r) + 12px) calc(var(--safe-b) + 12px) calc(var(--safe-l) + 12px);}
+#picker.on{display:flex;}
+#picker .sheet{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  width:100%;max-width:640px;margin:auto;display:flex;flex-direction:column;max-height:100%;overflow:hidden;}
+#picker .top{padding:12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;}
+#picker .top input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;}
+#pkList{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:60px;}
+#pkList .it{padding:12px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px;align-items:baseline;}
+#pkList .it:active{background:var(--panel2);}
+#pkList .it .nm{flex:1;font-size:14px;line-height:1.35;}
+#pkList .it .mt{font-size:11px;color:var(--dim);white-space:nowrap;}
+#pkList .it .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none;
+  align-self:center;visibility:hidden;}
+#pkList .it.sc .dot{visibility:visible;}
+#pkList .empty{padding:22px 12px;color:var(--dim);font-size:13px;text-align:center;line-height:1.6;}
+#picker .bot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;}
+#picker .bot .grow{flex:1;font-size:12px;color:var(--dim);}
+
+.toast{position:fixed;left:50%;top:calc(var(--safe-t) + 14px);transform:translateX(-50%);
+  background:#000000d9;border:1px solid #ffffff24;border-radius:9px;padding:9px 16px;font-size:13px;
+  z-index:99;opacity:0;transition:opacity .2s;pointer-events:none;backdrop-filter:blur(8px);}
+.toast.on{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ SETUP ══════════════ -->
+<div id="setup"><div class="wrap">
+
+  <header class="brand">
+    <div class="mark"></div>
+    <h1>Red Beard <span>Teleprompter</span></h1>
+  </header>
+
+  <div class="card">
+    <h2>Script</h2>
+    <div class="scriptbar">
+      <select id="scriptSel"></select>
+      <button class="iconbtn" id="newBtn">+ New</button>
+      <button class="iconbtn" id="dupBtn">Duplicate</button>
+      <button class="iconbtn danger" id="delBtn">Delete</button>
+    </div>
+    <div class="scriptbar">
+      <button class="iconbtn" id="pullBtn" hidden>⤓ Load from computer</button>
+      <button class="iconbtn" id="fileBtn">📄 Open a file…</button>
+      <input type="file" id="fileIn" accept=".md,.txt,.markdown,text/plain,text/markdown" hidden>
+    </div>
+    <input id="title" placeholder="Script title" autocomplete="off">
+    <textarea id="body" placeholder="Paste or type your script here.
+
+Blank lines separate paragraphs.
+
+((Double parentheses become dim director notes — visible but obviously not read aloud.))
+
+# A line starting with # becomes a red cue label"></textarea>
+    <div class="stats">
+      <div><b id="stWords">0</b> spoken words</div>
+      <div><b id="stChars">0</b> characters</div>
+      <div>≈ <b id="stTime">0:00</b> at <b id="stWpm">150</b> wpm</div>
+      <div id="saveNote" style="margin-left:auto"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Delivery</h2>
+    <div class="row"><label>Speed</label>
+      <input type="range" id="cWpm" min="60" max="260" step="1"><div class="val"><span id="vWpm"></span> wpm</div></div>
+    <div class="row"><label>Text size</label>
+      <input type="range" id="cSize" min="18" max="140" step="1"><div class="val"><span id="vSize"></span> px</div></div>
+    <div class="row"><label>Line spacing</label>
+      <input type="range" id="cLead" min="1" max="2.4" step="0.05"><div class="val" id="vLead"></div></div>
+    <div class="row"><label>Side margin</label>
+      <input type="range" id="cPad" min="0" max="35" step="1"><div class="val"><span id="vPad"></span> %</div></div>
+    <div class="row"><label>Guide line</label>
+      <input type="range" id="cGuide" min="10" max="85" step="1"><div class="val"><span id="vGuide"></span> %</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Rig — mirror &amp; rotation</h2>
+    <div class="row"><label>Rotate</label>
+      <div class="seg" style="flex:1">
+        <button data-rot="0" class="rotBtn">0°</button>
+        <button data-rot="90" class="rotBtn">90°</button>
+        <button data-rot="180" class="rotBtn">180°</button>
+        <button data-rot="270" class="rotBtn">270°</button>
+      </div></div>
+    <div class="row"><label>Flip</label>
+      <div class="chips" style="flex:1">
+        <button class="chip" id="tMx">Mirror ↔ horizontal</button>
+        <button class="chip" id="tMy">Mirror ↕ vertical</button>
+      </div></div>
+    <div class="row"><label>Display</label>
+      <div class="chips" style="flex:1">
+        <button class="chip" id="tGuide">Guide line</button>
+        <button class="chip" id="tBand">Dim edges</button>
+        <button class="chip" id="tUpper">UPPERCASE</button>
+        <button class="chip" id="tNotes">Hide director notes</button>
+        <button class="chip" id="tCount">3-2-1 countdown</button>
+        <button class="chip" id="tWake">Keep screen awake</button>
+      </div></div>
+    <div class="row"><label>Typeface</label>
+      <div class="seg" style="flex:1">
+        <button data-font="sans" class="fontBtn">Sans</button>
+        <button data-font="serif" class="fontBtn">Serif</button>
+        <button data-font="cond" class="fontBtn">Condensed</button>
+      </div></div>
+    <div class="row"><label>Weight</label>
+      <div class="seg" style="flex:1">
+        <button data-wt="400" class="wtBtn">Regular</button>
+        <button data-wt="600" class="wtBtn">Medium</button>
+        <button data-wt="800" class="wtBtn">Bold</button>
+      </div></div>
+    <div class="row"><label>Align</label>
+      <div class="seg" style="flex:1">
+        <button data-al="left" class="alBtn">Left</button>
+        <button data-al="center" class="alBtn">Center</button>
+      </div></div>
+  </div>
+
+  <button id="start">▶ Start Prompter</button>
+
+  <details class="help">
+    <summary>Controls &amp; setup notes</summary>
+    <div>
+      <p><b>While scrolling:</b> tap the screen to pause/resume. Drag up or down to scrub to any point.
+      The control bar hides itself after a few seconds — tap once to bring it back.</p>
+      <p><b>Bluetooth pedal / keyboard:</b> <kbd>Space</kbd> play/pause · <kbd>↑</kbd><kbd>↓</kbd> speed ·
+      <kbd>←</kbd><kbd>→</kbd> jump a screen · <kbd>R</kbd> restart · <kbd>M</kbd> mirror · <kbd>Esc</kbd> exit.
+      Most cheap page-turner pedals send arrow keys, so they work here with no pairing setup beyond Bluetooth itself.</p>
+      <p><b>Beam-splitter glass:</b> the glass reverses the image, so turn on one of the mirror flips.
+      Which one depends on how the phone sits in the cradle — try <b>Mirror ↔ horizontal</b> first, and if the
+      text reads backwards in the glass, switch to the vertical one instead.</p>
+      <p><b>Rotate</b> lets you keep iOS rotation lock ON and still get landscape text — handy once the
+      phone is clamped in the rig and you don't want iOS deciding to flip on you mid-take.</p>
+      <p>Everything saves automatically on this device. No account, no internet needed after first load.</p>
+    </div>
+  </details>
+
+  <details class="help">
+    <summary>Backup / move scripts to another device</summary>
+    <div>
+      <p>Copy this text somewhere safe, or paste a previous backup in and press Restore.</p>
+      <textarea id="io" style="width:100%;height:110px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;font-size:12px;line-height:1.5;margin-bottom:8px" placeholder="Backup data appears here"></textarea>
+      <div class="chips">
+        <button class="iconbtn" id="expBtn">Fill with backup</button>
+        <button class="iconbtn" id="copyBtn">Copy</button>
+        <button class="iconbtn" id="impBtn">Restore from box</button>
+      </div>
+    </div>
+  </details>
+
+</div></div>
+
+<!-- ══════════════ PROMPTER ══════════════ -->
+<div id="prompter">
+  <div id="rotor">
+    <div id="scroller"><div id="text"></div></div>
+    <div id="band"><div class="fade" id="fadeTop"></div><div class="fade" id="fadeBot"></div></div>
+    <div id="guide"><div class="line"></div></div>
+  </div>
+  <div id="prog"></div>
+  <div id="count"></div>
+  <div id="bar">
+    <button id="play">Play</button>
+    <div class="grp"><span>wpm</span><button class="stp" id="sDn">−</button><b id="bWpm">150</b><button class="stp" id="sUp">+</button></div>
+    <div class="grp"><span>size</span><button class="stp" id="zDn">−</button><b id="bSize">48</b><button class="stp" id="zUp">+</button></div>
+    <div class="grp"><button class="stp" id="bRestart" title="Restart">⏮</button><button class="stp" id="bMirror" title="Mirror">⇄</button></div>
+    <button id="exit">Exit</button>
+  </div>
+</div>
+
+<!-- ══════════════ SCRIPT PICKER ══════════════ -->
+<div id="picker">
+  <div class="sheet">
+    <div class="top">
+      <input id="pkFilter" placeholder="Filter scripts…" autocomplete="off">
+      <button class="iconbtn" id="pkClose">Close</button>
+    </div>
+    <div id="pkList"></div>
+    <div class="bot">
+      <div class="grow" id="pkCount"></div>
+      <button class="chip" id="pkAll">Show all notes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ═══════════ STATE ═══════════ */
+const LS_LIB = "rbtp.library.v1", LS_SET = "rbtp.settings.v1", LS_CUR = "rbtp.current.v1",
+      LS_BAKED = "rbtp.baked.v1";
+const SEED_ID = "seed-welcome";
+
+const DEFAULTS = {
+  wpm:150, size:48, lead:1.45, pad:8, guide:42,
+  rot:0, mx:false, my:false,
+  showGuide:true, band:false, upper:false, hideNotes:false, countdown:true, wake:true,
+  font:"sans", weight:600, align:"left"
+};
+
+/* Only settings want defaults merged in; the library is an array and curId is a string, and
+   Object.assign would quietly turn either of those into a numeric-keyed object. Merge only
+   when both sides are plain objects. */
+const isPlainObj = o => o !== null && typeof o === "object" && !Array.isArray(o);
+function load(k, fb){
+  try{
+    const v = localStorage.getItem(k);
+    if (v === null) return fb;
+    const p = JSON.parse(v);
+    return (isPlainObj(fb) && isPlainObj(p)) ? Object.assign({}, fb, p) : p;
+  }catch(e){ return fb; }
+}
+
+let S = load(LS_SET, DEFAULTS);
+if (!isPlainObj(S)) S = Object.assign({}, DEFAULTS);
+
+let lib = load(LS_LIB, null);
+if (isPlainObj(lib)) lib = Object.values(lib);           // repair libraries mangled by an earlier build
+if (!Array.isArray(lib)) lib = [];
+lib = lib.filter(s => s && typeof s.id === "string" && typeof s.body === "string");
+if (!lib.length) lib = [seed()];
+
+let curId = load(LS_CUR, null);
+if (typeof curId !== "string" || !lib.some(s => s.id === curId)) curId = lib[0].id;
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function saveSettings(){ save(LS_SET, S); }
+function saveLib(){ save(LS_LIB, lib); save(LS_CUR, curId); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function seed(){
+  return { id:SEED_ID, title:"Welcome — read this to test the rig",
+    body:"# Cold open\n\nThis is your teleprompter. Every setting on the previous screen is live, so tune it while the text is actually moving.\n\n((Director note — this dim italic text is a note to yourself. Notes are for you, not the camera.))\n\nTap the screen once to pause. Tap again to resume. Drag up or down to scrub anywhere in the script.\n\n# Getting the mirror right\n\nIf your teleprompter uses beam-splitter glass, the reflection reverses the text. Flip it back with one of the mirror toggles until it reads normally in the glass.\n\nSet the speed to match how you actually talk, not how fast you can read. Most people land somewhere between one hundred thirty and one hundred sixty words per minute.\n\nWhen this looks right, delete this script and paste your own.",
+    updated: Date.now() };
+}
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const cur = () => lib.find(x => x.id === curId) || lib[0];
+
+/* ═══════════ TOAST ═══════════ */
+let toastT;
+function toast(msg){
+  const el = $("#toast"); el.textContent = msg; el.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1500);
+}
+
+/* ═══════════ SCRIPT LIBRARY ═══════════ */
+function renderList(){
+  const sel = $("#scriptSel"); sel.innerHTML = "";
+  lib.slice().sort((a,b) => b.updated - a.updated).forEach(s => {
+    const o = document.createElement("option");
+    o.value = s.id; o.textContent = s.title || "Untitled";
+    if (s.id === curId) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+function loadCurrent(){
+  const s = cur(); curId = s.id;
+  $("#title").value = s.title; $("#body").value = s.body;
+  renderList(); updateStats();
+}
+
+let saveT;
+function touchScript(){
+  const s = cur();
+  s.title = $("#title").value; s.body = $("#body").value; s.updated = Date.now();
+  updateStats();
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { saveLib(); renderList(); $("#saveNote").textContent = "saved";
+    setTimeout(() => { $("#saveNote").textContent = ""; }, 1200); }, 450);
+}
+
+function wordCount(t){ const m = t.trim().match(/\S+/g); return m ? m.length : 0; }
+
+/* Cue labels and director notes are never read aloud, so they must not count toward WPM --
+   otherwise a heavily annotated shooting script scrolls far faster than it is spoken. */
+function spokenWords(body){
+  return wordCount(
+    body.split("\n")
+        .filter(l => !/^\s*#\s/.test(l))
+        .join("\n")
+        .replace(/\(\([\s\S]*?\)\)/g, " ")
+  );
+}
+
+function updateStats(){
+  const t = $("#body").value, w = spokenWords(t);
+  $("#stWords").textContent = w;
+  $("#stChars").textContent = t.length;
+  $("#stWpm").textContent = S.wpm;
+  const secs = S.wpm > 0 ? Math.round(w / S.wpm * 60) : 0;
+  $("#stTime").textContent = Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+}
+
+/* ═══════════ SETTINGS UI ═══════════ */
+const SLIDERS = [
+  ["cWpm","wpm","vWpm", v => v],
+  ["cSize","size","vSize", v => v],
+  ["cLead","lead","vLead", v => Number(v).toFixed(2)],
+  ["cPad","pad","vPad", v => v],
+  ["cGuide","guide","vGuide", v => v]
+];
+const TOGGLES = [["tGuide","showGuide"],["tBand","band"],["tUpper","upper"],["tNotes","hideNotes"],["tCount","countdown"],["tWake","wake"]];
+
+function syncUI(){
+  SLIDERS.forEach(([id, key, out, fmt]) => { $("#"+id).value = S[key]; $("#"+out).textContent = fmt(S[key]); });
+  TOGGLES.forEach(([id, key]) => $("#"+id).setAttribute("aria-pressed", !!S[key]));
+  $("#tMx").setAttribute("aria-pressed", !!S.mx);
+  $("#tMy").setAttribute("aria-pressed", !!S.my);
+  $$(".rotBtn").forEach(b => b.setAttribute("aria-pressed", +b.dataset.rot === S.rot));
+  $$(".fontBtn").forEach(b => b.setAttribute("aria-pressed", b.dataset.font === S.font));
+  $$(".wtBtn").forEach(b => b.setAttribute("aria-pressed", +b.dataset.wt === S.weight));
+  $$(".alBtn").forEach(b => b.setAttribute("aria-pressed", b.dataset.al === S.align));
+  $("#bWpm").textContent = S.wpm;
+  $("#bSize").textContent = S.size;
+  updateStats();
+}
+
+SLIDERS.forEach(([id, key, out, fmt]) => {
+  $("#"+id).addEventListener("input", e => {
+    S[key] = key === "lead" ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+    $("#"+out).textContent = fmt(S[key]);
+    saveSettings(); updateStats(); if (running) applyStyle();
+  });
+});
+TOGGLES.forEach(([id, key]) => {
+  $("#"+id).addEventListener("click", () => { S[key] = !S[key]; saveSettings(); syncUI(); if (running) applyStyle(); });
+});
+$("#tMx").addEventListener("click", () => { S.mx = !S.mx; saveSettings(); syncUI(); if (running) layout(); });
+$("#tMy").addEventListener("click", () => { S.my = !S.my; saveSettings(); syncUI(); if (running) layout(); });
+$$(".rotBtn").forEach(b => b.addEventListener("click", () => { S.rot = +b.dataset.rot; saveSettings(); syncUI(); if (running) layout(); }));
+$$(".fontBtn").forEach(b => b.addEventListener("click", () => { S.font = b.dataset.font; saveSettings(); syncUI(); if (running) applyStyle(); }));
+$$(".wtBtn").forEach(b => b.addEventListener("click", () => { S.weight = +b.dataset.wt; saveSettings(); syncUI(); if (running) applyStyle(); }));
+$$(".alBtn").forEach(b => b.addEventListener("click", () => { S.align = b.dataset.al; saveSettings(); syncUI(); if (running) applyStyle(); }));
+
+$("#title").addEventListener("input", touchScript);
+$("#body").addEventListener("input", touchScript);
+$("#scriptSel").addEventListener("change", e => { curId = e.target.value; saveLib(); loadCurrent(); });
+
+$("#newBtn").addEventListener("click", () => {
+  const s = { id:uid(), title:"Untitled script", body:"", updated:Date.now() };
+  lib.push(s); curId = s.id; saveLib(); loadCurrent(); $("#title").select();
+});
+$("#dupBtn").addEventListener("click", () => {
+  const s = cur();
+  const c = { id:uid(), title:s.title + " (copy)", body:s.body, updated:Date.now() };
+  lib.push(c); curId = c.id; saveLib(); loadCurrent(); toast("Duplicated");
+});
+$("#delBtn").addEventListener("click", () => {
+  if (lib.length === 1) { toast("Can't delete your only script"); return; }
+  if (!confirm('Delete "' + (cur().title || "Untitled") + '" permanently?')) return;
+  lib = lib.filter(x => x.id !== curId); curId = lib[0].id; saveLib(); loadCurrent(); toast("Deleted");
+});
+
+/* ═══════════ MARKDOWN → PROMPTER ═══════════ */
+/* Vault script notes arrive in two shapes: Obsidian notes with frontmatter and #/## headings,
+   and plainer teleprompter drafts that use a standalone **bold** line as a section header.
+   Both are handled:
+     H1, or the first standalone **bold** line -> the title (consumed, never read aloud)
+     H2..H6, or later standalone **bold** lines -> red cue label (navigation, not narration)
+     > blockquote, or a standalone *italic* line -> dim director's note
+   Everything else flattens to plain spoken text. */
+function fromMarkdown(src){
+  let t = src.replace(/\r/g, "");
+  let title = "";
+
+  const fm = t.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (fm) {
+    const mt = fm[1].match(/^title:\s*(.+)$/m);
+    if (mt) title = mt[1].trim().replace(/^["']|["']$/g, "");
+    t = t.slice(fm[0].length);
+  }
+
+  /* "> " means opposite things in different scripts here. In some, a lone blockquote at the
+     top is a note to self. In others, EVERY spoken line is a blockquote and the italics are
+     the B-roll direction. Guessing wrong makes the reader narrate stage directions and skip
+     the actual script, so decide per document: if blockquotes carry a large share of the
+     prose, they are the narration, not an aside. */
+  let qWords = 0, allWords = 0, qBlocks = 0, inQuote = false;
+  for (const raw of t.split("\n")) {
+    const line = raw.trim();
+    const isQ = /^>\s?/.test(line);
+    if (isQ && !inQuote) qBlocks++;
+    inQuote = isQ && !!line;
+    if (!line || /^#{1,6}\s/.test(line) || /^([-*_])\s*(\1\s*){2,}$/.test(line)) continue;
+    const n = wordCount(line);
+    allWords += n;
+    if (isQ) qWords += n;
+  }
+  /* Share alone is too easy to trip on a short script whose single note happens to be long,
+     so require both: blockquotes must carry a big share of the prose AND be scattered through
+     the document. A note to self is one or two blocks; narration is dozens. */
+  const quotesAreSpoken = allWords > 0 && (qWords / allWords) >= 0.35 && qBlocks >= 3;
+
+  const out = [];
+  let quote = [], titleTaken = false;
+  const flushQuote = () => {
+    if (quote.length) { out.push("", "((" + quote.join(" ").trim() + "))", ""); quote = []; }
+  };
+  /* The first heading is always consumed, never shown: it is the script's own title, and
+     when frontmatter already supplied one the heading is just a duplicate of it. */
+  let sectionSeen = false, nonEmpty = 0;
+  const heading = txt => {
+    if (!titleTaken) { titleTaken = true; if (!title) title = txt; return; }
+    sectionSeen = true;
+    out.push("", "# " + txt, "");
+  };
+
+  for (const raw of t.split("\n")) {
+    const line = raw.replace(/\s+$/, "");
+    if (line.trim()) nonEmpty++;
+
+    const q = line.match(/^\s*>\s?(.*)$/);
+    if (q) {
+      if (quotesAreSpoken) { out.push(q[1]); continue; }   // it's the narration — strip the marker
+      quote.push(q[1]); continue;                          // consecutive > lines merge into one note
+    }
+
+    /* A header block of "**Channel:** Red Beard Lifts" lines is metadata about the shoot,
+       not narration. Requiring a value after the colon keeps a bold section heading like
+       "**The Checklist:**" out of this branch. Buffered so a run collapses to one note. */
+    const meta = line.match(/^\s*\*\*([^*]+?):\*\*\s*(.+)$/);
+    if (meta) { quote.push(meta[1].trim() + ": " + meta[2].trim()); continue; }
+
+    /* Stage direction appears standalone in at least four wrappers across these scripts:
+       [B-roll: ...] bare, `[B-ROLL] ...` in backticks, *[Cut to: ...]* in italics. Unwrap
+       the line first, then treat a fully-bracketed line, or one opening with a [TAG], as
+       direction. Getting this wrong means reading camera notes out loud. */
+    const bare = line.trim().replace(/^[`*_]+/, "").replace(/[`*_]+$/, "").trim();
+    if (/^\[[^\]]+\]$/.test(bare) || /^\[[A-Z][A-Z\- ]{1,14}\]/.test(bare)) {
+      quote.push(bare); continue;
+    }
+
+    /* The "Channel: RBL · Date: ..." block at the very top is production metadata. Confined
+       to the first few lines and to before the first section, so narration is never caught. */
+    if (!titleTaken || (nonEmpty <= 10 && !sectionSeen)) {
+      if (/^[A-Z][A-Za-z ]{1,20}:\s+\S/.test(line) && wordCount(line) <= 40) {
+        quote.push(line); continue;
+      }
+    }
+
+    flushQuote();
+
+    if (/^\s{0,3}([-*_])\s*(\1\s*){2,}$/.test(line)) { out.push(""); continue; }   // hr
+
+    const h = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*$/);
+    if (h) { heading(h[2].trim()); continue; }
+
+    // a whole line wrapped in ** ** is a section header in the plainer script format
+    const b = line.match(/^\s*\*\*(.+?)\*\*\s*$/);
+    if (b) { heading(b[1].trim()); continue; }
+
+    // a whole line in single * * or _ _ is a note to self (e.g. "fill before recording")
+    const i = line.match(/^\s*(?:\*(?!\*)(.+?)\*|_(?!_)(.+?)_)\s*$/);
+    if (i) { out.push("", "((" + (i[1] || i[2]).trim() + "))", ""); continue; }
+
+    out.push(line);
+  }
+  flushQuote();
+
+  const body = out.join("\n")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")              // images
+    .replace(/\[\[[^\]|]*\|([^\]]+)\]\]/g, "$1")       // [[link|alias]]
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")                // [[link]]
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")           // [text](url)
+    .replace(/^\s{0,3}[-*+]\s+/gm, "")                 // bullets
+    .replace(/^\s{0,3}\d+[.)]\s+/gm, "")               // numbered lists
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1$2")
+    .replace(/`+([^`]*)`+/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  /* Title may legitimately come back empty for a raw transcript with no heading at all —
+     the caller falls back to the filename, which is more useful than "Untitled". */
+  return { title, body };
+}
+
+function importScript(rawText, fallbackName){
+  const { title, body } = fromMarkdown(rawText);
+  if (!body) { toast("That file had no readable text"); return false; }
+  const s = { id:uid(), title: (title || fallbackName || "Imported script").trim(), body, updated: Date.now() };
+  lib.push(s); curId = s.id; saveLib(); loadCurrent();
+  toast("Loaded: " + s.title);
+  return true;
+}
+
+/* ═══════════ LOAD FROM COMPUTER ═══════════ */
+let catalog = [], showAll = false;
+
+/* The API only exists when the app is served by serve.py. Installed from GitHub Pages there
+   is no PC to ask, so the button stays hidden and the file picker is the route in. */
+async function probeApi(){
+  try {
+    const r = await fetch("scripts/index.json", { cache:"no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!Array.isArray(d.scripts)) return;
+    catalog = d.scripts;
+    $("#pullBtn").hidden = false;
+  } catch(e) { /* not served by serve.py — fine */ }
+}
+
+function renderPicker(){
+  const q = $("#pkFilter").value.trim().toLowerCase();
+  const rows = catalog.filter(s => {
+    if (!showAll && !s.scripty) return false;
+    if (!q) return true;
+    return (s.title + " " + s.file + " " + s.folder).toLowerCase().includes(q);
+  });
+  const list = $("#pkList");
+  list.innerHTML = "";
+  if (!rows.length) {
+    list.innerHTML = '<div class="empty">Nothing matches.' +
+      (showAll ? "" : "<br>Try <b>Show all notes</b> below.") + "</div>";
+  } else {
+    rows.forEach(s => {
+      const d = document.createElement("div");
+      d.className = "it" + (s.scripty ? " sc" : "");
+      d.innerHTML = '<span class="dot"></span><span class="nm"></span><span class="mt"></span>';
+      d.querySelector(".nm").textContent = s.title;
+      d.querySelector(".mt").textContent = s.date + " · " + s.kb + "kb";
+      d.addEventListener("click", () => pull(s));
+      list.appendChild(d);
+    });
+  }
+  $("#pkCount").textContent = rows.length + " of " + catalog.length + " shown";
+  $("#pkAll").setAttribute("aria-pressed", showAll);
+}
+
+async function pull(entry){
+  try {
+    const r = await fetch("scripts/" + entry.id, { cache:"no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    if (importScript(await r.text(), entry.title)) $("#picker").classList.remove("on");
+  } catch(e) { toast("Could not load — is the PC still serving?"); }
+}
+
+$("#pullBtn").addEventListener("click", async () => {
+  await probeApi();
+  showAll = false; $("#pkFilter").value = "";
+  renderPicker();
+  $("#picker").classList.add("on");
+});
+$("#pkClose").addEventListener("click", () => $("#picker").classList.remove("on"));
+$("#pkFilter").addEventListener("input", renderPicker);
+$("#pkAll").addEventListener("click", () => { showAll = !showAll; renderPicker(); });
+$("#picker").addEventListener("click", e => { if (e.target.id === "picker") $("#picker").classList.remove("on"); });
+
+/* file picker — works everywhere, including from iCloud Drive / Files on the phone */
+$("#fileBtn").addEventListener("click", () => $("#fileIn").click());
+$("#fileIn").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  importScript(await f.text(), f.name.replace(/\.[^.]+$/, ""));
+  e.target.value = "";
+});
+
+/* drag a .md onto the editor on the desktop */
+["dragover","drop"].forEach(ev => $("#body").addEventListener(ev, async e => {
+  e.preventDefault();
+  if (ev !== "drop") return;
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) importScript(await f.text(), f.name.replace(/\.[^.]+$/, ""));
+}));
+
+/* backup / restore */
+$("#expBtn").addEventListener("click", () => { $("#io").value = JSON.stringify({ v:1, lib, S }); toast("Backup ready — copy it"); });
+$("#copyBtn").addEventListener("click", async () => {
+  if (!$("#io").value) $("#io").value = JSON.stringify({ v:1, lib, S });
+  try { await navigator.clipboard.writeText($("#io").value); toast("Copied"); }
+  catch(e) { $("#io").select(); toast("Select all and copy"); }
+});
+$("#impBtn").addEventListener("click", () => {
+  try {
+    const d = JSON.parse($("#io").value);
+    if (!Array.isArray(d.lib) || !d.lib.length) throw 0;
+    if (!confirm("Replace all " + lib.length + " script(s) on this device with " + d.lib.length + " from the backup?")) return;
+    lib = d.lib; if (d.S) S = Object.assign({}, DEFAULTS, d.S);
+    curId = lib[0].id; saveLib(); saveSettings(); loadCurrent(); syncUI(); toast("Restored");
+  } catch(e) { toast("That doesn't look like a backup"); }
+});
+
+/* ═══════════ TEXT RENDERING ═══════════ */
+const FONTS = {
+  sans:  '-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif',
+  serif: 'Georgia,"Iowan Old Style","Times New Roman",serif',
+  cond:  '"Avenir Next Condensed","Arial Narrow","Helvetica Neue Condensed",sans-serif'
+};
+const esc = t => t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function buildText(){
+  liveWords = spokenWords(cur().body);
+  const blocks = cur().body.replace(/\r/g,"").split(/\n{2,}/);
+  $("#text").innerHTML = blocks.map(b => {
+    if (!b.trim()) return "";
+    let h = esc(b).replace(/\n/g, "<br>");
+    if (/^\s*#\s?/.test(b)) return '<p class="cue">' + h.replace(/^\s*#\s?/, "") + "</p>";
+    h = h.replace(/\(\((.+?)\)\)/gs, '<span class="note">$1</span>')
+         .replace(/\[([A-Z0-9][A-Z0-9_\- ]{1,40})\]/g, '<span class="ph">[$1]</span>');
+    return "<p>" + h + "</p>";
+  }).join("");
+}
+
+function applyStyle(){
+  const t = $("#text");
+  t.style.fontFamily    = FONTS[S.font];
+  t.style.fontSize      = S.size + "px";
+  t.style.lineHeight    = S.lead;
+  t.style.fontWeight    = S.weight;
+  t.style.textAlign     = S.align;
+  t.style.textTransform = S.upper ? "uppercase" : "none";
+  t.classList.toggle("nonotes", !!S.hideNotes);
+  $("#scroller").style.padding = "0 " + S.pad + "%";
+  $("#guide").classList.toggle("on", S.showGuide);
+  $("#band").classList.toggle("on", S.band);
+  requestAnimationFrame(measure);
+}
+
+/* ═══════════ GEOMETRY ═══════════ */
+let W = 0, H = 0, maxY = 0, y = 0;
+/* hot-path caches — these are touched 60x/sec, so never re-query or re-count in frame() */
+const elScroller = $("#scroller"), elProg = $("#prog");
+let liveWords = 0;
+
+function layout(){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const turned = (S.rot === 90 || S.rot === 270);
+  W = turned ? vh : vw;
+  H = turned ? vw : vh;
+
+  const r = $("#rotor");
+  r.style.width  = W + "px";
+  r.style.height = H + "px";
+  /* leftmost transforms are outermost: mirror happens in SCREEN space, rotation inside it */
+  r.style.transform = "translate(-50%,-50%) scale(" + (S.mx ? -1 : 1) + "," + (S.my ? -1 : 1) + ") rotate(" + S.rot + "deg)";
+
+  const gy = H * S.guide / 100;
+  $("#guide").style.top = gy + "px";
+  $("#fadeTop").style.cssText = "top:0;height:" + Math.max(0, gy - H * 0.16) + "px;background:linear-gradient(#000f,#0000)";
+  $("#fadeBot").style.cssText = "bottom:0;height:" + Math.max(0, H - gy - H * 0.28) + "px;background:linear-gradient(#0000,#000f)";
+  measure();
+}
+
+function measure(){
+  const gy = H * S.guide / 100;
+  $("#scroller").style.paddingTop    = gy + "px";
+  $("#scroller").style.paddingBottom = (H - gy) + "px";
+  const h = $("#scroller").offsetHeight;
+  maxY = Math.max(0, h - H);
+  y = Math.min(y, maxY);
+  draw();
+}
+
+function draw(){
+  elScroller.style.transform = "translate3d(0," + (-y) + "px,0)";
+  elProg.style.width = (maxY > 0 ? (y / maxY) * 100 : 0) + "%";
+}
+
+/* Speed is held at a constant WPM regardless of font size: px/sec is derived from how many
+   pixels of scroll one word occupies, so bumping text size mid-take re-derives px/sec and
+   the spoken pace never changes. liveWords is cached — counting it per frame would run a
+   regex over the whole script 60x/sec. */
+function pxPerSec(){
+  if (!liveWords || maxY <= 0) return 0;
+  return (S.wpm / 60) * (maxY / liveWords);
+}
+
+/* ═══════════ ENGINE ═══════════ */
+let running = false, playing = false, lastT = 0, raf = 0, wakeLock = null;
+
+function frame(t){
+  if (!running) return;
+  const dt = lastT ? Math.min((t - lastT) / 1000, 0.1) : 0;
+  lastT = t;
+  if (playing) {
+    y += pxPerSec() * dt;
+    if (y >= maxY) { y = maxY; setPlaying(false); toast("End of script"); }
+    draw();
+  }
+  raf = requestAnimationFrame(frame);
+}
+
+function setPlaying(p){
+  playing = p;
+  $("#play").textContent = p ? "Pause" : "Play";
+  if (p) { hideBarSoon(); } else { showBar(); }
+}
+
+async function requestWake(){
+  if (!S.wake || !("wakeLock" in navigator)) return;
+  try { wakeLock = await navigator.wakeLock.request("screen"); } catch(e) {}
+}
+function releaseWake(){ if (wakeLock) { try { wakeLock.release(); } catch(e){} wakeLock = null; } }
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && running) requestWake();
+});
+
+async function startPrompter(){
+  running = true; y = 0; lastT = 0;
+  $("#prompter").classList.add("on");
+  buildText(); applyStyle(); layout(); draw();
+  try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch(e){}
+  requestWake();
+  raf = requestAnimationFrame(frame);
+  showBar();
+  if (S.countdown) { await countdown(); }
+  setPlaying(true);
+}
+
+function countdown(){
+  return new Promise(res => {
+    const el = $("#count"); let n = 3;
+    el.classList.add("on"); el.textContent = n;
+    const iv = setInterval(() => {
+      n--;
+      if (n <= 0) { clearInterval(iv); el.classList.remove("on"); res(); }
+      else el.textContent = n;
+    }, 700);
+  });
+}
+
+function stopPrompter(){
+  running = false; playing = false;
+  cancelAnimationFrame(raf);
+  $("#prompter").classList.remove("on");
+  $("#count").classList.remove("on");
+  releaseWake();
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
+  syncUI();
+}
+
+$("#start").addEventListener("click", startPrompter);
+$("#exit").addEventListener("click", stopPrompter);
+$("#play").addEventListener("click", e => { e.stopPropagation(); setPlaying(!playing); });
+$("#bRestart").addEventListener("click", e => { e.stopPropagation(); y = 0; draw(); toast("Back to top"); });
+$("#bMirror").addEventListener("click", e => { e.stopPropagation(); S.mx = !S.mx; saveSettings(); layout(); toast(S.mx ? "Mirrored" : "Not mirrored"); });
+
+function nudgeWpm(d){ S.wpm = Math.max(40, Math.min(400, S.wpm + d)); saveSettings(); $("#bWpm").textContent = S.wpm; }
+function nudgeSize(d){ S.size = Math.max(14, Math.min(200, S.size + d)); saveSettings(); $("#bSize").textContent = S.size; applyStyle(); }
+$("#sUp").addEventListener("click", e => { e.stopPropagation(); nudgeWpm(5); });
+$("#sDn").addEventListener("click", e => { e.stopPropagation(); nudgeWpm(-5); });
+$("#zUp").addEventListener("click", e => { e.stopPropagation(); nudgeSize(2); });
+$("#zDn").addEventListener("click", e => { e.stopPropagation(); nudgeSize(-2); });
+
+/* ═══════════ CONTROL BAR AUTO-HIDE ═══════════ */
+let barT;
+function showBar(){ $("#bar").classList.remove("hide"); clearTimeout(barT); if (playing) hideBarSoon(); }
+function hideBarSoon(){ clearTimeout(barT); barT = setTimeout(() => $("#bar").classList.add("hide"), 2600); }
+
+/* ═══════════ GESTURES ═══════════ */
+/* map a screen-space drag onto the content's own vertical axis, undoing mirror + rotation */
+function toContentDy(dx, dy){
+  const x = S.mx ? -dx : dx;
+  const v = S.my ? -dy : dy;
+  switch (S.rot) {
+    case 90:  return -x;
+    case 180: return -v;
+    case 270: return x;
+    default:  return v;
+  }
+}
+
+let pDown = false, pX = 0, pY = 0, pY0 = 0, dragging = false, wasPlaying = false, downAt = 0;
+const stage = $("#prompter");
+
+stage.addEventListener("pointerdown", e => {
+  if (e.target.closest("#bar")) return;
+  pDown = true; dragging = false; downAt = Date.now();
+  pX = e.clientX; pY = e.clientY; pY0 = y; wasPlaying = playing;
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener("pointermove", e => {
+  if (!pDown) return;
+  const dx = e.clientX - pX, dy = e.clientY - pY;
+  if (!dragging && Math.hypot(dx, dy) > 12) { dragging = true; playing = false; $("#play").textContent = "Play"; showBar(); }
+  if (dragging) {
+    y = Math.max(0, Math.min(maxY, pY0 - toContentDy(dx, dy)));
+    draw();
+  }
+});
+stage.addEventListener("pointerup", e => {
+  if (!pDown) return;
+  pDown = false;
+  try { stage.releasePointerCapture(e.pointerId); } catch(err){}
+  if (dragging) { if (wasPlaying) setPlaying(true); return; }
+  if (Date.now() - downAt > 700) return;         // long press = do nothing
+  if ($("#bar").classList.contains("hide")) { showBar(); return; }
+  setPlaying(!playing);
+});
+stage.addEventListener("pointercancel", () => { pDown = false; dragging = false; });
+
+/* ═══════════ KEYBOARD / BLUETOOTH PEDAL ═══════════ */
+window.addEventListener("keydown", e => {
+  if (!running) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); startPrompter(); }
+    return;
+  }
+  const k = e.key;
+  if (k === " " || k === "Enter") { e.preventDefault(); setPlaying(!playing); }
+  else if (k === "ArrowUp")    { e.preventDefault(); nudgeWpm(5);  showBar(); }
+  else if (k === "ArrowDown")  { e.preventDefault(); nudgeWpm(-5); showBar(); }
+  else if (k === "ArrowRight" || k === "PageDown") { e.preventDefault(); y = Math.min(maxY, y + H * 0.8); draw(); }
+  else if (k === "ArrowLeft"  || k === "PageUp")   { e.preventDefault(); y = Math.max(0,    y - H * 0.8); draw(); }
+  else if (k === "Home") { y = 0; draw(); }
+  else if (k === "End")  { y = maxY; draw(); }
+  else if (k.toLowerCase() === "r") { y = 0; draw(); toast("Back to top"); }
+  else if (k.toLowerCase() === "m") { S.mx = !S.mx; saveSettings(); layout(); }
+  else if (k === "Escape") stopPrompter();
+});
+
+/* ═══════════ RESIZE ═══════════ */
+let rzT;
+window.addEventListener("resize", () => { if (!running) return; clearTimeout(rzT); rzT = setTimeout(layout, 120); });
+window.addEventListener("orientationchange", () => { if (running) setTimeout(layout, 250); });
+
+/* ═══════════ OFFLINE (best effort) ═══════════ */
+try {
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    const sw = "self.addEventListener('install',e=>{self.skipWaiting()});" +
+               "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});" +
+               "self.addEventListener('fetch',e=>{e.respondWith(" +
+               "caches.open('rbtp').then(c=>c.match(e.request).then(r=>{" +
+               "const n=fetch(e.request).then(x=>{c.put(e.request,x.clone());return x}).catch(()=>r);" +
+               "return r||n})))});";
+    navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], { type:"text/javascript" })))
+      .catch(() => {});
+  }
+} catch(e) {}
+
+/* ═══════════ BAKED SCRIPTS (standalone single-file build) ═══════════ */
+/* build_standalone.py embeds scripts in a <script type="application/json"> tag so the file
+   runs straight off disk with no server. Re-seeding is keyed to the build stamp, so opening
+   the same file repeatedly will not clobber edits made on the phone -- but a fresh build
+   does refresh its own scripts. On file:// iOS blocks localStorage, in which case there is
+   no stamp to compare, the scripts simply load every time, and the baked settings apply. */
+function loadBaked(){
+  const el = document.getElementById("baked");
+  if (!el) return;
+  let pack;
+  try { pack = JSON.parse(el.textContent); } catch(e) { return; }
+  if (!pack || !Array.isArray(pack.scripts) || !pack.scripts.length) return;
+
+  if (pack.settings) {
+    let saved = null;
+    try { saved = localStorage.getItem(LS_SET); } catch(e) {}
+    if (!saved) S = Object.assign({}, DEFAULTS, pack.settings);   // storage wins if it exists
+  }
+
+  let seen = null;
+  try { seen = localStorage.getItem(LS_BAKED); } catch(e) {}
+  if (seen === pack.stamp) return;
+
+  const incoming = pack.scripts.map(r => {
+    const c = fromMarkdown(r.md || "");
+    return { id:"baked-" + r.id, title:(c.title || r.title || "Script").trim(),
+             body:c.body, updated:Date.now() };
+  }).filter(s => s.body);
+  if (!incoming.length) return;
+
+  const ids = new Set(incoming.map(s => s.id));
+  lib = lib.filter(s => !ids.has(s.id) && s.id !== SEED_ID).concat(incoming);
+  curId = incoming[0].id;
+  try { localStorage.setItem(LS_BAKED, pack.stamp); } catch(e) {}
+  saveLib();
+}
+
+/* ═══════════ BOOT ═══════════ */
+loadBaked();
+loadCurrent();
+syncUI();
+saveLib();
+probeApi();
+</script>
+</body>
+</html>
