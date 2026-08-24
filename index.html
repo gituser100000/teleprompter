@@ -135,6 +135,7 @@ details.help b{color:var(--ink);}
 #bar .stp{width:30px;height:30px;border-radius:8px;background:#ffffff14;font-size:16px;line-height:1;
   display:flex;align-items:center;justify-content:center;}
 #bar .stp:active{background:var(--accent);}
+#bar .stp.wide{width:auto;min-width:42px;padding:0 10px;font-size:14px;font-weight:700;}
 #play{background:var(--accent);color:#fff;border-radius:10px;padding:10px 20px;font-weight:700;
   font-size:14px;letter-spacing:.1em;text-transform:uppercase;min-width:96px;}
 #exit{margin-left:auto;background:#ffffff14;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--dim);}
@@ -177,6 +178,20 @@ details.help b{color:var(--ink);}
     <h1>Red Beard <span>Teleprompter</span></h1>
   </header>
 
+  <div class="card" id="fsHint" hidden>
+    <h2>Running in Safari — not fullscreen</h2>
+    <p style="margin:0 0 10px;font-size:13px;line-height:1.65;color:var(--dim)">
+      Safari keeps its address bar and tabs on screen, which eats a lot of a landscape phone.
+      Installing the app to your Home Screen removes them completely.
+    </p>
+    <p style="margin:0 0 12px;font-size:13px;line-height:1.75;color:var(--ink)">
+      In <b>Safari</b>: tap the <b>Share</b> button (the square with the up arrow) →
+      <b>Add to Home Screen</b> → <b>Add</b>.<br>
+      Then close Safari and launch the app from the new icon.
+    </p>
+    <button class="iconbtn" id="fsDismiss">Got it, hide this</button>
+  </div>
+
   <div class="card">
     <h2>Script</h2>
     <div class="scriptbar">
@@ -218,6 +233,8 @@ Blank lines separate paragraphs.
       <input type="range" id="cPad" min="0" max="35" step="1"><div class="val"><span id="vPad"></span> %</div></div>
     <div class="row"><label>Guide line</label>
       <input type="range" id="cGuide" min="10" max="85" step="1"><div class="val"><span id="vGuide"></span> %</div></div>
+    <div class="row"><label>Rewind button</label>
+      <input type="range" id="cRewind" min="1" max="20" step="1"><div class="val"><span id="vRewind"></span> lines</div></div>
   </div>
 
   <div class="card">
@@ -270,7 +287,8 @@ Blank lines separate paragraphs.
       <p><b>While scrolling:</b> tap the screen to pause/resume. Drag up or down to scrub to any point.
       The control bar hides itself after a few seconds — tap once to bring it back.</p>
       <p><b>Bluetooth pedal / keyboard:</b> <kbd>Space</kbd> play/pause · <kbd>↑</kbd><kbd>↓</kbd> speed ·
-      <kbd>←</kbd><kbd>→</kbd> jump a screen · <kbd>R</kbd> restart · <kbd>M</kbd> mirror · <kbd>Esc</kbd> exit.
+      <kbd>←</kbd><kbd>→</kbd> jump a screen · <kbd>B</kbd> back a few lines · <kbd>R</kbd> restart ·
+      <kbd>M</kbd> mirror · <kbd>Esc</kbd> exit.
       Most cheap page-turner pedals send arrow keys, so they work here with no pairing setup beyond Bluetooth itself.</p>
       <p><b>Beam-splitter glass:</b> the glass reverses the image, so turn on one of the mirror flips.
       Which one depends on how the phone sits in the cradle — try <b>Mirror ↔ horizontal</b> first, and if the
@@ -309,7 +327,7 @@ Blank lines separate paragraphs.
     <button id="play">Play</button>
     <div class="grp"><span>wpm</span><button class="stp" id="sDn">−</button><b id="bWpm">150</b><button class="stp" id="sUp">+</button></div>
     <div class="grp"><span>size</span><button class="stp" id="zDn">−</button><b id="bSize">48</b><button class="stp" id="zUp">+</button></div>
-    <div class="grp"><button class="stp" id="bRestart" title="Restart">⏮</button><button class="stp" id="bMirror" title="Mirror">⇄</button></div>
+    <div class="grp"><button class="stp wide" id="bBack" title="Back a few lines">↺5</button><button class="stp" id="bRestart" title="Back to top">⏮</button><button class="stp" id="bMirror" title="Mirror">⇄</button></div>
     <button id="exit">Exit</button>
   </div>
 </div>
@@ -342,7 +360,7 @@ const SEED_ID = "seed-welcome";
 const DEFAULTS = {
   wpm:150, size:48, lead:1.45, pad:8, guide:42,
   rot:0, mx:false, my:false,
-  showGuide:true, band:false, upper:false, hideNotes:false, countdown:true, wake:true,
+  showGuide:true, band:false, upper:false, hideNotes:false, countdown:true, wake:true, rewind:5,
   font:"sans", weight:600, align:"left"
 };
 
@@ -446,7 +464,8 @@ const SLIDERS = [
   ["cSize","size","vSize", v => v],
   ["cLead","lead","vLead", v => Number(v).toFixed(2)],
   ["cPad","pad","vPad", v => v],
-  ["cGuide","guide","vGuide", v => v]
+  ["cGuide","guide","vGuide", v => v],
+  ["cRewind","rewind","vRewind", v => v]
 ];
 const TOGGLES = [["tGuide","showGuide"],["tBand","band"],["tUpper","upper"],["tNotes","hideNotes"],["tCount","countdown"],["tWake","wake"]];
 
@@ -461,6 +480,7 @@ function syncUI(){
   $$(".alBtn").forEach(b => b.setAttribute("aria-pressed", b.dataset.al === S.align));
   $("#bWpm").textContent = S.wpm;
   $("#bSize").textContent = S.size;
+  $("#bBack").textContent = "↺" + S.rewind;
   updateStats();
 }
 
@@ -766,6 +786,26 @@ function applyStyle(){
   requestAnimationFrame(measure);
 }
 
+/* ═══════════ FULLSCREEN / INSTALL STATE ═══════════ */
+/* iPhone Safari has no Fullscreen API, so the only way to lose the address bar and tab bar
+   is running as a Home Screen app. navigator.standalone is the iOS signal for that;
+   display-mode covers everything else. */
+function isStandalone(){
+  return window.navigator.standalone === true ||
+         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+}
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+               (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+function updateFsHint(){
+  const show = IS_IOS && !isStandalone() && !sessionStorage.getItem("rbtp.fsHintOff");
+  $("#fsHint").hidden = !show;
+}
+$("#fsDismiss").addEventListener("click", () => {
+  try { sessionStorage.setItem("rbtp.fsHintOff", "1"); } catch(e) {}
+  $("#fsHint").hidden = true;
+});
+
 /* ═══════════ GEOMETRY ═══════════ */
 let W = 0, H = 0, maxY = 0, y = 0;
 /* hot-path caches — these are touched 60x/sec, so never re-query or re-count in frame() */
@@ -773,7 +813,11 @@ const elScroller = $("#scroller"), elProg = $("#prog");
 let liveWords = 0;
 
 function layout(){
-  const vw = window.innerWidth, vh = window.innerHeight;
+  /* visualViewport is the actually-visible area. In Safari, window.innerHeight can include
+     the strip sitting behind the toolbars, which would push the last line out of sight. */
+  const vv = window.visualViewport;
+  const vw = Math.round(vv ? vv.width  : window.innerWidth);
+  const vh = Math.round(vv ? vv.height : window.innerHeight);
   const turned = (S.rot === 90 || S.rot === 270);
   W = turned ? vh : vw;
   H = turned ? vw : vh;
@@ -882,6 +926,18 @@ function stopPrompter(){
 $("#start").addEventListener("click", startPrompter);
 $("#exit").addEventListener("click", stopPrompter);
 $("#play").addEventListener("click", e => { e.stopPropagation(); setPlaying(!playing); });
+/* Nudge back a few lines after a fluffed take, without losing your place entirely.
+   One line is font-size x line-height, so this tracks whatever text size is set. */
+function rewindLines(n){
+  y = Math.max(0, y - n * (S.size * S.lead));
+  draw();
+}
+$("#bBack").addEventListener("click", e => {
+  e.stopPropagation();
+  rewindLines(S.rewind);
+  showBar();
+  toast("Back " + S.rewind + " line" + (S.rewind === 1 ? "" : "s"));
+});
 $("#bRestart").addEventListener("click", e => { e.stopPropagation(); y = 0; draw(); toast("Back to top"); });
 $("#bMirror").addEventListener("click", e => { e.stopPropagation(); S.mx = !S.mx; saveSettings(); layout(); toast(S.mx ? "Mirrored" : "Not mirrored"); });
 
@@ -953,6 +1009,7 @@ window.addEventListener("keydown", e => {
   else if (k === "ArrowLeft"  || k === "PageUp")   { e.preventDefault(); y = Math.max(0,    y - H * 0.8); draw(); }
   else if (k === "Home") { y = 0; draw(); }
   else if (k === "End")  { y = maxY; draw(); }
+  else if (k.toLowerCase() === "b") { e.preventDefault(); rewindLines(S.rewind); showBar(); }
   else if (k.toLowerCase() === "r") { y = 0; draw(); toast("Back to top"); }
   else if (k.toLowerCase() === "m") { S.mx = !S.mx; saveSettings(); layout(); }
   else if (k === "Escape") stopPrompter();
@@ -960,8 +1017,14 @@ window.addEventListener("keydown", e => {
 
 /* ═══════════ RESIZE ═══════════ */
 let rzT;
-window.addEventListener("resize", () => { if (!running) return; clearTimeout(rzT); rzT = setTimeout(layout, 120); });
-window.addEventListener("orientationchange", () => { if (running) setTimeout(layout, 250); });
+const relayout = () => { if (!running) return; clearTimeout(rzT); rzT = setTimeout(layout, 120); };
+window.addEventListener("resize", relayout);
+window.addEventListener("orientationchange", () => { updateFsHint(); if (running) setTimeout(layout, 250); });
+/* Safari's toolbars slide in and out as you scroll, changing the visible height without
+   firing a window resize -- this is the event that catches it. */
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", relayout);
+}
 
 /* ═══════════ OFFLINE (best effort) ═══════════ */
 try {
@@ -1020,6 +1083,7 @@ loadCurrent();
 syncUI();
 saveLib();
 probeApi();
+updateFsHint();
 </script>
 </body>
 </html>
