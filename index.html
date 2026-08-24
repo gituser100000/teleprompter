@@ -230,7 +230,7 @@ Blank lines separate paragraphs.
     <div class="row"><label>Line spacing</label>
       <input type="range" id="cLead" min="1" max="2.4" step="0.05"><div class="val" id="vLead"></div></div>
     <div class="row"><label>Side margin</label>
-      <input type="range" id="cPad" min="0" max="35" step="1"><div class="val"><span id="vPad"></span> %</div></div>
+      <input type="range" id="cPad" min="0" max="45" step="1"><div class="val"><span id="vPad"></span> %</div></div>
     <div class="row"><label>Guide line</label>
       <input type="range" id="cGuide" min="10" max="85" step="1"><div class="val"><span id="vGuide"></span> %</div></div>
     <div class="row"><label>Rewind button</label>
@@ -287,8 +287,8 @@ Blank lines separate paragraphs.
       <p><b>While scrolling:</b> tap the screen to pause/resume. Drag up or down to scrub to any point.
       The control bar hides itself after a few seconds — tap once to bring it back.</p>
       <p><b>Bluetooth pedal / keyboard:</b> <kbd>Space</kbd> play/pause · <kbd>↑</kbd><kbd>↓</kbd> speed ·
-      <kbd>←</kbd><kbd>→</kbd> jump a screen · <kbd>B</kbd> back a few lines · <kbd>R</kbd> restart ·
-      <kbd>M</kbd> mirror · <kbd>Esc</kbd> exit.
+      <kbd>←</kbd><kbd>→</kbd> jump a screen · <kbd>B</kbd> back a few lines · <kbd>[</kbd><kbd>]</kbd> margins ·
+      <kbd>R</kbd> restart · <kbd>M</kbd> mirror · <kbd>Esc</kbd> exit.
       Most cheap page-turner pedals send arrow keys, so they work here with no pairing setup beyond Bluetooth itself.</p>
       <p><b>Beam-splitter glass:</b> the glass reverses the image, so turn on one of the mirror flips.
       Which one depends on how the phone sits in the cradle — try <b>Mirror ↔ horizontal</b> first, and if the
@@ -327,6 +327,7 @@ Blank lines separate paragraphs.
     <button id="play">Play</button>
     <div class="grp"><span>wpm</span><button class="stp" id="sDn">−</button><b id="bWpm">150</b><button class="stp" id="sUp">+</button></div>
     <div class="grp"><span>size</span><button class="stp" id="zDn">−</button><b id="bSize">48</b><button class="stp" id="zUp">+</button></div>
+    <div class="grp"><span>margin</span><button class="stp" id="mDn">−</button><b id="bPad">8</b><button class="stp" id="mUp">+</button></div>
     <div class="grp"><button class="stp wide" id="bBack" title="Back a few lines">↺5</button><button class="stp" id="bRestart" title="Back to top">⏮</button><button class="stp" id="bMirror" title="Mirror">⇄</button></div>
     <button id="exit">Exit</button>
   </div>
@@ -481,6 +482,7 @@ function syncUI(){
   $("#bWpm").textContent = S.wpm;
   $("#bSize").textContent = S.size;
   $("#bBack").textContent = "↺" + S.rewind;
+  $("#bPad").textContent = S.pad;
   updateStats();
 }
 
@@ -783,7 +785,10 @@ function applyStyle(){
   $("#scroller").style.padding = "0 " + S.pad + "%";
   $("#guide").classList.toggle("on", S.showGuide);
   $("#band").classList.toggle("on", S.band);
-  requestAnimationFrame(measure);
+  /* Measured synchronously: reading offsetHeight flushes the styles set above, so deferring
+     to rAF gains nothing and leaves one frame where maxY describes the old layout -- which
+     is exactly when a mid-take size or margin change would jump the reader's place. */
+  measure();
 }
 
 /* ═══════════ FULLSCREEN / INSTALL STATE ═══════════ */
@@ -836,12 +841,19 @@ function layout(){
 }
 
 function measure(){
+  if (!H) return;              // stage not sized yet (applyStyle can run before layout)
+  const prevMax = maxY;
+  const frac = prevMax > 0 ? y / prevMax : 0;
+
   const gy = H * S.guide / 100;
-  $("#scroller").style.paddingTop    = gy + "px";
-  $("#scroller").style.paddingBottom = (H - gy) + "px";
-  const h = $("#scroller").offsetHeight;
-  maxY = Math.max(0, h - H);
-  y = Math.min(y, maxY);
+  elScroller.style.paddingTop    = gy + "px";
+  elScroller.style.paddingBottom = (H - gy) + "px";
+  maxY = Math.max(0, elScroller.offsetHeight - H);
+
+  /* Text reflows whenever size, margin, or orientation change, which moves every absolute
+     pixel offset. Hold the reader's place as a fraction of the script so the line sitting on
+     the guide stays put instead of jumping mid-take. */
+  y = prevMax > 0 ? Math.min(maxY, frac * maxY) : Math.min(y, maxY);
   draw();
 }
 
@@ -943,6 +955,17 @@ $("#bMirror").addEventListener("click", e => { e.stopPropagation(); S.mx = !S.mx
 
 function nudgeWpm(d){ S.wpm = Math.max(40, Math.min(400, S.wpm + d)); saveSettings(); $("#bWpm").textContent = S.wpm; }
 function nudgeSize(d){ S.size = Math.max(14, Math.min(200, S.size + d)); saveSettings(); $("#bSize").textContent = S.size; applyStyle(); }
+/* Narrowing the text column keeps the eyes near the lens. Adjustable mid-take because you
+   can only judge how far your eyes travel by watching yourself on camera. */
+function nudgePad(d){
+  S.pad = Math.max(0, Math.min(45, S.pad + d));
+  saveSettings();
+  $("#bPad").textContent = S.pad;
+  $("#cPad").value = S.pad; $("#vPad").textContent = S.pad;
+  applyStyle();
+}
+$("#mUp").addEventListener("click", e => { e.stopPropagation(); nudgePad(2); });
+$("#mDn").addEventListener("click", e => { e.stopPropagation(); nudgePad(-2); });
 $("#sUp").addEventListener("click", e => { e.stopPropagation(); nudgeWpm(5); });
 $("#sDn").addEventListener("click", e => { e.stopPropagation(); nudgeWpm(-5); });
 $("#zUp").addEventListener("click", e => { e.stopPropagation(); nudgeSize(2); });
@@ -1009,6 +1032,8 @@ window.addEventListener("keydown", e => {
   else if (k === "ArrowLeft"  || k === "PageUp")   { e.preventDefault(); y = Math.max(0,    y - H * 0.8); draw(); }
   else if (k === "Home") { y = 0; draw(); }
   else if (k === "End")  { y = maxY; draw(); }
+  else if (k === "[") { e.preventDefault(); nudgePad(-2); showBar(); }
+  else if (k === "]") { e.preventDefault(); nudgePad(2);  showBar(); }
   else if (k.toLowerCase() === "b") { e.preventDefault(); rewindLines(S.rewind); showBar(); }
   else if (k.toLowerCase() === "r") { y = 0; draw(); toast("Back to top"); }
   else if (k.toLowerCase() === "m") { S.mx = !S.mx; saveSettings(); layout(); }
