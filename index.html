@@ -359,11 +359,17 @@ const LS_LIB = "rbtp.library.v1", LS_SET = "rbtp.settings.v1", LS_CUR = "rbtp.cu
 const SEED_ID = "seed-welcome";
 
 const DEFAULTS = {
-  wpm:150, size:48, lead:1.45, pad:8, guide:42,
+  wpm:120, size:48, lead:1.45, pad:20, guide:42,
   rot:0, mx:false, my:false,
-  showGuide:true, band:false, upper:false, hideNotes:false, countdown:true, wake:true, rewind:5,
+  showGuide:false, band:false, upper:false, hideNotes:true, countdown:true, wake:true, rewind:5,
   font:"sans", weight:600, align:"left"
 };
+
+/* Saved settings win over DEFAULTS, so changing a default alone never reaches a device that
+   has already stored one. Bumping this re-applies only the keys listed in MIGRATIONS for
+   that version, leaving everything else the user has tuned (mirror, rotation, font) intact. */
+const DEFAULTS_VERSION = 2;
+const MIGRATIONS = { 2: ["wpm", "pad", "showGuide", "hideNotes"] };
 
 /* Only settings want defaults merged in; the library is an array and curId is a string, and
    Object.assign would quietly turn either of those into a numeric-keyed object. Merge only
@@ -378,8 +384,21 @@ function load(k, fb){
   }catch(e){ return fb; }
 }
 
-let S = load(LS_SET, DEFAULTS);
-if (!isPlainObj(S)) S = Object.assign({}, DEFAULTS);
+/* Always a fresh copy: load() hands back the DEFAULTS object itself when nothing is stored,
+   and every later S.foo = ... would otherwise be editing DEFAULTS in place. The merge also
+   fills in any key added since the settings were last saved. */
+const savedSettings = load(LS_SET, null);
+let S = Object.assign({}, DEFAULTS, isPlainObj(savedSettings) ? savedSettings : {});
+
+(function migrateSettings(){
+  const from = S.defaultsVersion | 0;
+  if (from >= DEFAULTS_VERSION) return;
+  for (let v = from + 1; v <= DEFAULTS_VERSION; v++) {
+    (MIGRATIONS[v] || []).forEach(k => { S[k] = DEFAULTS[k]; });
+  }
+  S.defaultsVersion = DEFAULTS_VERSION;
+  save(LS_SET, S);
+})();
 
 let lib = load(LS_LIB, null);
 if (isPlainObj(lib)) lib = Object.values(lib);           // repair libraries mangled by an earlier build
